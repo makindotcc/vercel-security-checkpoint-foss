@@ -1,0 +1,12 @@
+[package]
+name = "vercel-security-checkpoint-foss"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.12", features = ["cookies"] }
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.9"
+base64 = "0.22"
