@@ -1,13 +1,12 @@
 mod solver;
 
+use crate::solver::{solve_challenge, solve_challenge_faster};
 use reqwest::{
     StatusCode,
     header::{HeaderMap, HeaderName, HeaderValue},
     redirect,
 };
 use std::{process, time::Instant};
-
-use crate::solver::solve_challenge;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
@@ -26,7 +25,9 @@ async fn main() {
 
     eprintln!("[1] Initial get {}", target);
     let initial_request = client.get(&target).send().await.unwrap();
-    if initial_request.status() != StatusCode::TOO_MANY_REQUESTS {
+    if initial_request.status() != StatusCode::TOO_MANY_REQUESTS
+        && initial_request.status() != StatusCode::FORBIDDEN
+    {
         eprintln!(
             "[*] No challenge — page returned {} directly",
             initial_request.status()
@@ -56,8 +57,18 @@ async fn main() {
     eprintln!("    token: {token}");
 
     eprintln!("[2] Solving challenge...");
+
+    {
+        let started_solving_at = Instant::now();
+        let solution = solve_challenge(&token, 42);
+        eprintln!(
+            "    found solution in {:?} the old fashioned way: {solution}",
+            started_solving_at.elapsed()
+        );
+    }
+
     let started_solving_at = Instant::now();
-    let solution = solve_challenge(&token);
+    let solution = solve_challenge_faster(&token);
     eprintln!(
         "    found solution in {:?}: {solution}",
         started_solving_at.elapsed()
@@ -76,11 +87,7 @@ async fn main() {
         .send()
         .await
         .unwrap();
-    eprintln!(
-        "    {} {}",
-        solution_response.status().as_u16(),
-        solution_response.status().canonical_reason().unwrap_or("")
-    );
+    eprintln!("    {}", solution_response.status());
 
     let cookie = solution_response
         .headers()
@@ -112,7 +119,7 @@ async fn main() {
     eprintln!("    {:?}", final_response.status());
     let body = final_response.text().await.unwrap();
     eprintln!("    body length: {}", body.len());
-    println!("{body}");
+    // println!("{body}");
 }
 
 struct SolutionData<'a> {
@@ -159,10 +166,6 @@ fn build_challenge_headers(data: &SolutionData) -> HeaderMap {
 
 fn default_headers() -> HeaderMap {
     let pairs = [
-        (
-            "user-agent",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-        ),
         (
             "accept",
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
